@@ -16,7 +16,7 @@
 # Licensed under the Apache License, Version 2.0 (the "License")
 from __future__ import print_function
 from bcc import BPF
-from bcc.containers import filter_by_containers
+from bcc.containers import filter_by_containers, ContainersMap, print_container_info
 
 import argparse as ap
 from socket import inet_ntop, AF_INET, AF_INET6
@@ -34,6 +34,8 @@ parser.add_argument("--cgroupmap",
                     help="trace cgroups in this BPF map only")
 parser.add_argument("--mntnsmap",
                     help="trace mount namespaces in this BPF map only")
+parser.add_argument("--containersmap",
+                    help="print additional information about the containers where the events are executed")
 parser.add_argument("-v", "--verbose", action="store_true",
                     help="include Network Namespace in the output")
 parser.add_argument("--ebpf", action="store_true",
@@ -65,6 +67,9 @@ struct tcp_ipv4_event_t {
     u16 sport;
     u16 dport;
     u32 netns;
+#ifdef PRINT_CONTAINER_INFO
+    u64 mntnsid;
+#endif
 };
 BPF_PERF_OUTPUT(tcp_ipv4_event);
 
@@ -79,6 +84,9 @@ struct tcp_ipv6_event_t {
     u16 dport;
     u32 netns;
     u8 ip;
+#ifdef PRINT_CONTAINER_INFO
+    u64 mntnsid;
+#endif
 };
 BPF_PERF_OUTPUT(tcp_ipv6_event);
 
@@ -312,6 +320,9 @@ int trace_tcp_set_state_entry(struct pt_regs *ctx, struct sock *skp, int state)
       evt4.sport = ntohs(t.sport);
       evt4.dport = ntohs(t.dport);
       evt4.netns = t.netns;
+#ifdef PRINT_CONTAINER_INFO
+      evt4.mntnsid = get_mntns_id();
+#endif
 
       int i;
       for (i = 0; i < TASK_COMM_LEN; i++) {
@@ -348,6 +359,9 @@ int trace_tcp_set_state_entry(struct pt_regs *ctx, struct sock *skp, int state)
       evt6.sport = ntohs(t.sport);
       evt6.dport = ntohs(t.dport);
       evt6.netns = t.netns;
+#ifdef PRINT_CONTAINER_INFO
+      evt6.mntnsid = get_mntns_id();
+#endif
 
       int i;
       for (i = 0; i < TASK_COMM_LEN; i++) {
@@ -398,6 +412,9 @@ int trace_close_entry(struct pt_regs *ctx, struct sock *skp)
       evt4.sport = ntohs(t.sport);
       evt4.dport = ntohs(t.dport);
       evt4.netns = t.netns;
+#ifdef PRINT_CONTAINER_INFO
+      evt4.mntnsid = get_mntns_id();
+#endif
       bpf_get_current_comm(&evt4.comm, sizeof(evt4.comm));
 
       tcp_ipv4_event.perf_submit(ctx, &evt4, sizeof(evt4));
@@ -418,6 +435,9 @@ int trace_close_entry(struct pt_regs *ctx, struct sock *skp)
       evt6.sport = ntohs(t.sport);
       evt6.dport = ntohs(t.dport);
       evt6.netns = t.netns;
+#ifdef PRINT_CONTAINER_INFO
+      evt6.mntnsid = get_mntns_id();
+#endif
       bpf_get_current_comm(&evt6.comm, sizeof(evt6.comm));
 
       tcp_ipv6_event.perf_submit(ctx, &evt6, sizeof(evt6));
@@ -473,6 +493,9 @@ int trace_accept_return(struct pt_regs *ctx)
 
       evt4.sport = lport;
       evt4.dport = ntohs(dport);
+#ifdef PRINT_CONTAINER_INFO
+      evt4.mntnsid = get_mntns_id();
+#endif
       bpf_get_current_comm(&evt4.comm, sizeof(evt4.comm));
 
       // do not send event if IP address is 0.0.0.0 or port is 0
@@ -498,6 +521,9 @@ int trace_accept_return(struct pt_regs *ctx)
 
       evt6.sport = lport;
       evt6.dport = ntohs(dport);
+#ifdef PRINT_CONTAINER_INFO
+      evt6.mntnsid = get_mntns_id();
+#endif
       bpf_get_current_comm(&evt6.comm, sizeof(evt6.comm));
 
       // do not send event if IP address is 0.0.0.0 or port is 0
@@ -516,9 +542,16 @@ verbose_types = {"C": "connect", "A": "accept",
                  "X": "close", "U": "unknown"}
 
 
+if args.containersmap:
+    containers_map = ContainersMap(args.containersmap)
+
 def print_ipv4_event(cpu, data, size):
     event = b["tcp_ipv4_event"].event(data)
     global start_ts
+
+    if args.containersmap:
+        container = containers_map.get_container(event.mntnsid)
+        print("%-16s %-16s %-16s %-16s" % (container.NodeName, container.Namespace, container.PodName, container.ContainerName), end="")
 
     if args.timestamp:
         if start_ts == 0:
@@ -557,6 +590,9 @@ def print_ipv4_event(cpu, data, size):
 def print_ipv6_event(cpu, data, size):
     event = b["tcp_ipv6_event"].event(data)
     global start_ts
+    if args.containersmap:
+        container = containers_map.get_container(event.mntnsid)
+        print("%-16s %-16s %-16s %-16s" % (container.NodeName, container.Namespace, container.PodName, container.ContainerName), end="")
     if args.timestamp:
         if start_ts == 0:
             start_ts = event.ts_ns
@@ -601,6 +637,8 @@ if args.netns:
 
 bpf_text = bpf_text.replace('##FILTER_PID##', pid_filter)
 bpf_text = bpf_text.replace('##FILTER_NETNS##', netns_filter)
+if args.containersmap:
+    bpf_text = print_container_info() + bpf_text
 bpf_text = filter_by_containers(args) + bpf_text
 
 if args.ebpf:
@@ -620,6 +658,8 @@ b.attach_kretprobe(event="inet_csk_accept", fn_name="trace_accept_return")
 print("Tracing TCP established connections. Ctrl-C to end.")
 
 # header
+if args.containersmap:
+    print("%-16s %-16s %-16s %-16s" % ("NODE", "NAMESPACE", "PODNAME", "CONTAINERNAME"), end="")
 if args.verbose:
     if args.timestamp:
         print("%-14s" % ("TIME(ns)"), end="")
