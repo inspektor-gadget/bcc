@@ -42,8 +42,22 @@ get_mntns_id_text = """
 
     static inline u64 get_mntns_id() {
         struct task_struct *current_task;
+        struct nsproxy *nsproxy;
+        struct mnt_namespace *mnt_ns;
+        unsigned int inum;
+
         current_task = (struct task_struct *)bpf_get_current_task();
-        return current_task->nsproxy->mnt_ns->ns.inum;
+
+        if (bpf_probe_read_kernel(&nsproxy, sizeof(nsproxy), &current_task->nsproxy))
+            return 0;
+
+        if (bpf_probe_read_kernel(&mnt_ns, sizeof(mnt_ns), &nsproxy->mnt_ns))
+            return 0;
+
+        if (bpf_probe_read_kernel(&inum, sizeof(inum), &mnt_ns->ns.inum))
+            return 0;
+
+        return (u64) inum;
     }
     #endif // __GET_MTN_NS_ID
     """
