@@ -179,6 +179,8 @@ int ClangLoader::parse(unique_ptr<llvm::Module> *mod, TableStorage &ts,
     kpath = kdir + "/" + kernel_path_info.second;
   }
 
+  std::cout << "parse(): kpath " << kpath.c_str() << "\n";
+
   // If all attempts to obtain kheaders fail, check for kheaders.tar.xz in sysfs
   // Checking just for kpath existence is unsufficient, since it can refer to
   // leftover build directory without headers present anymore.
