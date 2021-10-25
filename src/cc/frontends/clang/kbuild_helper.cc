@@ -155,6 +155,7 @@ static inline int extract_kheaders(const std::string &dirpath,
   bool module = false;
 
   std::cout << "extract_kheaders()\n";
+
   if (!proc_kheaders_exists()) {
     ret = system("modprobe kheaders");
     std::cout << "extract_kheaders() modprobe kheaders -> ret " << ret << "\n";
@@ -162,6 +163,7 @@ static inline int extract_kheaders(const std::string &dirpath,
       std::cout << "extract_kheaders() Returning " << ret << "\n";
       return ret;
     }
+
     module = true;
     if (!proc_kheaders_exists()) {
       ret = -1;
@@ -210,11 +212,19 @@ static inline int extract_kheaders(const std::string &dirpath,
   std::cout << "extract_kheaders(): After rename ret " << ret << " \n";
 
 cleanup:
-  if (module) {
-    int ret1 = system("rmmod kheaders");
-    if (ret1)
-      return ret1;
-  }
+  std::cout << "extract_kheaders(): In cleanup \n";
+  std::cout << "extract_kheaders(): Verify if proc_kheaders_exists() " << proc_kheaders_exists() << " \n";
+
+//  if (module) {
+//    int ret1 = system("rmmod kheaders");
+//    std::cout << "extract_kheaders(): After rmmod ret " << ret1 << " \n";
+//    if (ret1) {
+//      std::cout << "extract_kheaders(): Returning " << ret1 << "\n";
+//      return ret1;
+//    }
+//  }
+
+  std::cout << "extract_kheaders(): Returning " << ret << "\n";
 
   return ret;
 }
