@@ -15,7 +15,7 @@ COPY ./ /root/bcc
 WORKDIR /root/bcc
 
 RUN /usr/lib/pbuilder/pbuilder-satisfydepends && \
-    ./scripts/build-deb.sh ${BUILD_TYPE}
+    PARALLEL=8 ./scripts/build-deb.sh ${BUILD_TYPE}
 
 # libbpf-tools
 RUN apt-get -qq update && \
