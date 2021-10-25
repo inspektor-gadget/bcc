@@ -22,6 +22,7 @@
 #include <set>
 #include <linux/bpf.h>
 #include <net/if.h>
+#include <iostream>
 
 #include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/ExecutionEngine/SectionMemoryManager.h>
@@ -162,6 +163,7 @@ int BPFModule::free_bcc_memory() {
 // load an entire c file as a module
 int BPFModule::load_cfile(const string &file, bool in_memory, const char *cflags[], int ncflags) {
   ClangLoader clang_loader(&*ctx_, flags_);
+  std::cout << "load_cfile() calling parse() \n";
   if (clang_loader.parse(&mod_, *ts_, file, in_memory, cflags, ncflags, id_,
                          *func_src_, mod_src_, maps_ns_, fake_fd_map_, perf_events_))
     return -1;
@@ -175,6 +177,7 @@ int BPFModule::load_cfile(const string &file, bool in_memory, const char *cflags
 // build an ExecutionEngine.
 int BPFModule::load_includes(const string &text) {
   ClangLoader clang_loader(&*ctx_, flags_);
+  std::cout << "load_includes() calling parse() \n";
   if (clang_loader.parse(&mod_, *ts_, text, true, nullptr, 0, "", *func_src_,
                          mod_src_, "", fake_fd_map_, perf_events_))
     return -1;
@@ -851,6 +854,7 @@ int BPFModule::load_b(const string &filename, const string &proto_filename) {
     fprintf(stderr, "Internal error: missing bcc/helpers.h");
     return -1;
   }
+  std::cout << "load_b() calling load_includes\n";
   if (int rc = load_includes(helpers_h->second))
     return rc;
 
@@ -880,6 +884,7 @@ int BPFModule::load_c(const string &filename, const char *cflags[], int ncflags)
     fprintf(stderr, "Invalid filename\n");
     return -1;
   }
+  std::cout << "load_c() calling load_cfile\n";
   if (int rc = load_cfile(filename, false, cflags, ncflags))
     return rc;
   if (rw_engine_enabled_) {
@@ -899,6 +904,7 @@ int BPFModule::load_string(const string &text, const char *cflags[], int ncflags
     fprintf(stderr, "Program already initialized\n");
     return -1;
   }
+  std::cout << "load_string() calling load_cfile\n";
   if (int rc = load_cfile(text, true, cflags, ncflags))
     return rc;
   if (rw_engine_enabled_) {

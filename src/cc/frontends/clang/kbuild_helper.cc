@@ -154,10 +154,14 @@ static inline int extract_kheaders(const std::string &dirpath,
   int ret;
   bool module = false;
 
+  std::cout << "extract_kheaders()\n";
   if (!proc_kheaders_exists()) {
     ret = system("modprobe kheaders");
-    if (ret)
+    std::cout << "extract_kheaders() modprobe kheaders -> ret " << ret << "\n";
+    if (ret) {
+      std::cout << "extract_kheaders() Returning " << ret << "\n";
       return ret;
+    }
     module = true;
     if (!proc_kheaders_exists()) {
       ret = -1;
@@ -165,29 +169,45 @@ static inline int extract_kheaders(const std::string &dirpath,
     }
   }
 
+  std::cout << "extract_kheaders(): module " << module << " \n";
+  std::cout << "extract_kheaders(): proc_kheaders_exists() returned TRUE. Try here to call proc_kheaders_exists() " << proc_kheaders_exists() << " \n";
+
   snprintf(dirpath_tmp, sizeof(dirpath_tmp), "/tmp/kheaders-%s-XXXXXX", uname_data.release);
   if (mkdtemp(dirpath_tmp) == NULL) {
     ret = -1;
     goto cleanup;
   }
 
+  std::cout << "extract_kheaders(): dirpath_tmp " << dirpath_tmp << " created\n";
+
   if ((size_t)snprintf(tar_cmd, sizeof(tar_cmd), "tar -xf %s -C %s", PROC_KHEADERS_PATH, dirpath_tmp) >= sizeof(tar_cmd)) {
     ret = -1;
     goto cleanup;
   }
+
+  std::cout << "extract_kheaders(): tar_cmd " << tar_cmd << "\n";
+
   ret = system(tar_cmd);
+  std::cout << "extract_kheaders(): tar_cmd -> ret " << ret << "\n";
+
   if (ret) {
     system(("rm -rf " + std::string(dirpath_tmp)).c_str());
     goto cleanup;
   }
+
+  std::cout << "extract_kheaders(): tar_cmd succeeded \n";
 
   /*
    * If the new directory exists, it could have raced with a parallel
    * extraction, in this case just delete the old directory and ignore.
    */
   ret = rename(dirpath_tmp, dirpath.c_str());
+  std::cout << "extract_kheaders(): rename -> ret " << ret << " \n";
+
   if (ret)
     ret = system(("rm -rf " + std::string(dirpath_tmp)).c_str());
+
+  std::cout << "extract_kheaders(): After rename ret " << ret << " \n";
 
 cleanup:
   if (module) {
@@ -204,14 +224,22 @@ int get_proc_kheaders(std::string &dirpath)
   struct utsname uname_data;
   char dirpath_tmp[256];
 
+  std::cout << "get_proc_kheaders()\n";
+
   if (uname(&uname_data))
     return -errno;
 
   snprintf(dirpath_tmp, 256, "/tmp/kheaders-%s", uname_data.release);
   dirpath = std::string(dirpath_tmp);
 
-  if (file_exists(dirpath_tmp))
+  std::cout << "get_proc_kheaders(): dirpath " << dirpath.c_str() << "\n";
+
+  if (file_exists(dirpath_tmp)) {
+    std::cout << "get_proc_kheaders(): dirpath " << dirpath.c_str() << " already exists\n";
     return 0;
+  }
+
+  std::cout << "get_proc_kheaders(): dirpath " << dirpath.c_str() << " does not exist\n";
 
   // First time so extract it
   return extract_kheaders(dirpath, uname_data);

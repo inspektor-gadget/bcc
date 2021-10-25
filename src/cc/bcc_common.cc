@@ -15,11 +15,13 @@
  */
 #include "bcc_common.h"
 #include "bpf_module.h"
+#include <iostream>
 
 extern "C" {
 void * bpf_module_create_b(const char *filename, const char *proto_filename, unsigned flags,
                            const char *dev_name) {
   auto mod = new ebpf::BPFModule(flags, nullptr, true, "", true, dev_name);
+  std::cout << "bpf_module_create_b() calling load_b\n";
   if (mod->load_b(filename, proto_filename) != 0) {
     delete mod;
     return nullptr;
@@ -30,6 +32,7 @@ void * bpf_module_create_b(const char *filename, const char *proto_filename, uns
 void * bpf_module_create_c(const char *filename, unsigned flags, const char *cflags[],
                            int ncflags, bool allow_rlimit, const char *dev_name) {
   auto mod = new ebpf::BPFModule(flags, nullptr, true, "", allow_rlimit, dev_name);
+  std::cout << "bpf_module_create_c() calling load_c\n";
   if (mod->load_c(filename, cflags, ncflags) != 0) {
     delete mod;
     return nullptr;
@@ -40,6 +43,7 @@ void * bpf_module_create_c(const char *filename, unsigned flags, const char *cfl
 void * bpf_module_create_c_from_string(const char *text, unsigned flags, const char *cflags[],
                                        int ncflags, bool allow_rlimit, const char *dev_name) {
   auto mod = new ebpf::BPFModule(flags, nullptr, true, "", allow_rlimit, dev_name);
+  std::cout << "bpf_module_create_c_from_string() calling load_string\n";
   if (mod->load_string(text, cflags, ncflags) != 0) {
     delete mod;
     return nullptr;
