@@ -43,14 +43,50 @@ jobs:
 
     - name: Authenticate with quay.io docker registry
       if: >
-        steps.vars.outputs.QUAY_PUBLISH
+        steps.vars.outputs.QUAY_PUBLISH && github.ref != 'refs/heads/gadget'
       env:
         QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
       run: ./scripts/docker/auth.sh ${{ github.repository }}
 
+    ## If we are pushing on gadget branch, we rather use github action than bcc
+    # scripts.
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v1
+      if: github.ref == 'refs/heads/gadget'
+
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v1
+      if: github.ref == 'refs/heads/gadget'
+
+    - name: Login to Container Registry
+      uses: docker/login-action@v1
+      if: github.ref == 'refs/heads/gadget'
+      with:
+        # Try to be compatible with what does auth.sh.
+        registry: quay.io
+        username: kinvolk+bcc_buildbot
+        password: ${{ secrets.QUAY_TOKEN }}
+
+    - name: Build container for amd64 and arm64
+      uses: docker/build-push-action@v2
+      # We cross build only on when pushing to gadget branch because it takes a
+      # lot of time.
+      if: github.ref == 'refs/heads/gadget'
+      with:
+        context: .
+        file: docker/Dockerfile.ubuntu
+        push: true
+        tags: quay.io/kinvolk/bcc:${{ github.sha }}-${{ matrix.env['NAME'] }}
+        build-args: OS_TAG=${{ matrix.env['OS_RELEASE'] }}
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache-new
+        # For the moment, we only support these two platforms.
+        platforms: linux/amd64,linux/arm64
+
     - name: Package docker image and push to quay.io
       if: >
-        steps.vars.outputs.QUAY_PUBLISH
+        steps.vars.outputs.QUAY_PUBLISH && github.ref != 'refs/heads/gadget'
       run: >
         ./scripts/docker/push.sh
         ${{ github.repository }}
@@ -62,7 +98,7 @@ jobs:
     # Uploads the packages built in docker to the github build as an artifact for convenience
     - uses: actions/upload-artifact@v1
       if: >
-        steps.vars.outputs.QUAY_PUBLISH
+        steps.vars.outputs.QUAY_PUBLISH && github.ref != 'refs/heads/gadget'
       with:
         name: ${{ matrix.env['NAME'] }}
         path: output
