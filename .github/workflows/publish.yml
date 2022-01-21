@@ -19,8 +19,8 @@ jobs:
     strategy:
       matrix:
         env:
-        - NAME: bionic-release
-          OS_RELEASE: 18.04
+        #- NAME: bionic-release
+        #  OS_RELEASE: 18.04
         - NAME: focal-release
           OS_RELEASE: 20.04
     steps:
@@ -106,6 +106,7 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         workdir: .
-        dockerfile: Dockerfile.ubuntu
+        dockerfile: docker/Dockerfile.ubuntu
         snapshot: true
         cache: ${{ github.event_name != 'schedule' }}
+        buildargs: ARG OS_TAG=20.04
