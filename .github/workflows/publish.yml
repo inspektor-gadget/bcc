@@ -3,7 +3,7 @@ name: Publish Build Artifacts
 on:
   push:
     branches:
-      - master
+      - gadget
   pull_request:
 
 jobs:
