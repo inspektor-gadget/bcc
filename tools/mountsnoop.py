@@ -383,7 +383,7 @@ def print_event(mounts, umounts, containers_map, stdout, parent, cpu, data, size
                 'flags': event.union.enter.flags,
                 'ppid': event.union.enter.ppid,
                 'pcomm': event.union.enter.pcomm,
-                'mntnsid': event.mntnsid,
+                'operation': 'mount',
             }
         elif event.type == EventType.EVENT_MOUNT_SOURCE:
             mounts[event.pid]['source'] = event.union.str
@@ -403,7 +403,7 @@ def print_event(mounts, umounts, containers_map, stdout, parent, cpu, data, size
                 'flags': event.union.enter.flags,
                 'ppid': event.union.enter.ppid,
                 'pcomm': event.union.enter.pcomm,
-                'mntnsid': event.mntnsid,
+                'operation': 'umount',
             }
         elif event.type == EventType.EVENT_UMOUNT_TARGET:
             umounts[event.pid]['target'] = event.union.str
@@ -411,6 +411,8 @@ def print_event(mounts, umounts, containers_map, stdout, parent, cpu, data, size
               event.type == EventType.EVENT_UMOUNT_RET):
             if event.type == EventType.EVENT_MOUNT_RET:
                 syscall = mounts.pop(event.pid)
+                syscall['ret'] = event.union.retval
+                syscall['mntnsid'] = event.mntnsid
                 call = ('mount({source}, {target}, {type}, {flags}, {data}) ' +
                         '= {retval}').format(
                     source=decode_mount_string(syscall['source']),
@@ -421,6 +423,8 @@ def print_event(mounts, umounts, containers_map, stdout, parent, cpu, data, size
                     retval=decode_errno(event.union.retval))
             else:
                 syscall = umounts.pop(event.pid)
+                syscall['ret'] = event.union.retval
+                syscall['mntnsid'] = event.mntnsid
                 call = 'umount({target}, {flags}) = {retval}'.format(
                     target=decode_mount_string(syscall['target']),
                     flags=decode_umount_flags(syscall['flags']),
