@@ -13,6 +13,7 @@
 #include "execsnoop.h"
 #include "execsnoop.skel.h"
 #include "trace_helpers.h"
+#include "min_core_btf_helpers.h"
 
 #define PERF_BUFFER_PAGES   64
 #define PERF_POLL_TIMEOUT_MS	100
@@ -274,7 +275,15 @@ int main(int argc, char **argv)
 	libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
 	libbpf_set_print(libbpf_print_fn);
 
-	obj = execsnoop_bpf__open();
+	LIBBPF_OPTS(bpf_object_open_opts, opts);
+
+#ifdef ENABLE_MIN_CORE_BTFS
+	char btf_path[] = "/tmp/bcc-libbpf-tools.btf.XXXXXX";
+	if (save_min_core_btf(btf_path) == 0)
+		opts.btf_custom_path = btf_path;
+#endif
+
+	obj = execsnoop_bpf__open_opts(&opts);
 	if (!obj) {
 		fprintf(stderr, "failed to open BPF object\n");
 		return 1;
@@ -290,6 +299,9 @@ int main(int argc, char **argv)
 		fprintf(stderr, "failed to load BPF object: %d\n", err);
 		goto cleanup;
 	}
+
+	if (opts.btf_custom_path)
+		unlink(opts.btf_custom_path);
 
 	clock_gettime(CLOCK_MONOTONIC, &start_time);
 	err = execsnoop_bpf__attach(obj);
