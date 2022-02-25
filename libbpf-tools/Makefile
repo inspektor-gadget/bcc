@@ -70,6 +70,16 @@ COMMON_OBJ = \
 	$(OUTPUT)/uprobe_helpers.o \
 	#
 
+ifdef ENABLE_MIN_CORE_BTFS
+
+ifndef BTF_HUB_ARCHIVE
+$(error Please set BTF_HUB_ARCHIVE to the folder where btfhub-archive resides)
+endif
+
+COMMON_OBJ += $(OUTPUT)/min_core_btf_helpers.o
+CFLAGS += -DENABLE_MIN_CORE_BTFS
+endif
+
 .PHONY: all
 all: $(APPS) $(APP_ALIASES)
 
@@ -110,6 +120,28 @@ $(OUTPUT)/%.bpf.o: %.bpf.c $(LIBBPF_OBJ) $(wildcard %.h) $(ARCH)/vmlinux.h | $(O
 	$(Q)$(CLANG) $(CFLAGS) -target bpf -D__TARGET_ARCH_$(ARCH)	      \
 		     -I$(ARCH)/ $(INCLUDES) -c $(filter %.c,$^) -o $@ &&      \
 	$(LLVM_STRIP) -g $@
+
+ifdef ENABLE_MIN_CORE_BTFS
+$(OUTPUT)/min_core_btf_helpers.o: $(OUTPUT)/min_core_btfs.h
+
+SOURCE_BTF_FILES = $(shell find $(BTF_HUB_ARCHIVE)/ -iregex ".*$(subst x86,x86_64,$(ARCH)).*" -type f -name '*.btf')
+MIN_CORE_BTF_FILES = $(patsubst $(BTF_HUB_ARCHIVE)/%.btf, $(OUTPUT)/min_core_btfs/%.btf, $(SOURCE_BTF_FILES))
+BPF_O_FILES = $(patsubst %,$(OUTPUT)/%.bpf.o,$(APPS))
+
+$(MIN_CORE_BTF_FILES): $(BPF_O_FILES)
+
+# Create reduced version of BTF files to be embeed within the tools executables
+$(OUTPUT)/min_core_btfs/%.btf: $(BTF_HUB_ARCHIVE)/%.btf
+	$(call msg,BTFGEN,$@)
+	@mkdir -p "$(@D)"
+	$(Q)$(BPFTOOL) gen min_core_btf $< $@ $(OUTPUT)/*.bpf.o
+
+# Compress reduced BTF files and create C header with its content
+$(OUTPUT)/min_core_btfs.h: $(MIN_CORE_BTF_FILES)
+	$(call msg,TAR,$@)
+	$(Q)tar c --gz -f $(OUTPUT)/min_core_btfs.tar.gz $(OUTPUT)/min_core_btfs/
+	$(Q)xxd -i -g 1 $(OUTPUT)/min_core_btfs.tar.gz > $(OUTPUT)/min_core_btfs.h
+endif
 
 # Build libbpf.a
 $(LIBBPF_OBJ): $(wildcard $(LIBBPF_SRC)/*.[ch]) | $(OUTPUT)/libbpf
