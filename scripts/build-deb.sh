@@ -50,7 +50,26 @@ if [[ "$buildtype" = "nightly" ]]; then
   dch -v $revision-$release "$git_subject"
 fi
 
-DEB_BUILD_OPTIONS="nocheck parallel=${PARALLEL}" $debuild -us -uc
+vendor=$(lscpu | grep Vendor | awk '{ print $3 }')
+arch=$(dpkg --print-architecture)
+release=$(cat /etc/os-release | grep VERSION_CODENAME | cut -d'=' -f2)
+
+# Below debuild calls lintian which hangs within a Ubuntu focal docker image for
+# arm64 running from amd64:
+# https://bugs.launchpad.net/ubuntu/+source/lintian/+bug/1881217
+# The problem comes from safe_qx() Perl function which asynchronously
+# calls a command and which, for unknown reasons, never returns.
+# NOTE This problem occurs on focal, not on bionic or groovy.
+# NOTE This problem does not occur when running arm docker image on arm host.
+# It only happens when cross building/running.
+# WARNING So, we will deactivate lintian in this particular case.
+# This is still run for bionic, so if there is any trouble, it should be throw
+# in bionic too.
+if [[ $vendor != 'ARM' && $arch = 'arm64' && $release = 'focal' ]]; then
+	no_lintian='--no-lintian'
+fi
+
+DEB_BUILD_OPTIONS="nocheck parallel=${PARALLEL}" $debuild ${no_lintian} -us -uc
 popd
 
 cp $TMP/*.deb .
