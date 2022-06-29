@@ -28,10 +28,12 @@
 
 from __future__ import print_function
 from bcc import BPF, PerfType, PerfSWConfig
-from bcc.containers import filter_by_containers
+from bcc.containers import filter_by_containers, ContainersMap, generate_container_info_code
+from bcc.utils import disable_stdout
 from sys import stderr
 from time import sleep
 import argparse
+import json
 import signal
 import os
 import errno
@@ -69,6 +71,7 @@ examples = """examples:
     ./profile -c 1000000  # profile stack traces every 1 in a million events
     ./profile 5           # profile at 49 Hertz for 5 seconds only
     ./profile -f 5        # output in folded format for flame graphs
+    ./profile --json      # output in JSON
     ./profile -p 185      # only profile process with PID 185
     ./profile -L 185      # only profile thread with TID 185
     ./profile -U          # only show user space stacks (no kernel)
@@ -104,6 +107,8 @@ parser.add_argument("-I", "--include-idle", action="store_true",
     help="include CPU idle stacks")
 parser.add_argument("-f", "--folded", action="store_true",
     help="output folded format, one line per stack (for flame graphs)")
+parser.add_argument("--json", action="store_true",
+    help="output the events in json format")
 parser.add_argument("--stack-storage-size", default=16384,
     type=positive_nonzero_int,
     help="the number of unique stack traces that can be stored and "
@@ -119,6 +124,9 @@ parser.add_argument("--cgroupmap",
     help="trace cgroups in this BPF map only")
 parser.add_argument("--mntnsmap",
     help="trace mount namespaces in this BPF map only")
+parser.add_argument("--containersmap",
+    help="print additional information about the containers where the events are executed. It is only compatible with --json output.")
+
 
 # option logic
 args = parser.parse_args()
@@ -141,6 +149,9 @@ bpf_text = """
 
 struct key_t {
     u32 pid;
+#ifdef PRINT_CONTAINER_INFO
+    u64 mntnsid;
+#endif
     u64 kernel_ip;
     int user_stack_id;
     int kernel_stack_id;
@@ -168,6 +179,9 @@ int do_perf_event(struct bpf_perf_event_data *ctx) {
 
     // create map key
     struct key_t key = {.pid = tgid};
+#ifdef PRINT_CONTAINER_INFO
+    key.mntnsid = get_mntns_id();
+#endif
     bpf_get_current_comm(&key.name, sizeof(key.name));
 
     // get stacks
@@ -244,6 +258,11 @@ bpf_text = bpf_text.replace('USER_STACK_GET', user_stack_get)
 bpf_text = bpf_text.replace('KERNEL_STACK_GET', kernel_stack_get)
 bpf_text = filter_by_containers(args) + bpf_text
 
+containers_map = None
+if args.containersmap:
+    bpf_text = generate_container_info_code() + bpf_text
+    containers_map = ContainersMap(args.containersmap)
+
 sample_freq = 0
 sample_period = 0
 if args.frequency:
@@ -257,7 +276,7 @@ sample_context = "%s%d %s" % (("", sample_freq, "Hertz") if sample_freq
                          else ("every ", sample_period, "events"))
 
 # header
-if not args.folded:
+if not args.folded and not args.json:
     print("Sampling at %s of %s by %s stack" %
         (sample_context, thread_context, stack_context), end="")
     if args.cpu >= 0:
@@ -293,7 +312,7 @@ except KeyboardInterrupt:
     # as cleanup can take some time, trap Ctrl-C:
     signal.signal(signal.SIGINT, signal_ignore)
 
-if not args.folded:
+if not args.folded and not args.json:
     print()
 
 def aksym(addr):
@@ -307,6 +326,11 @@ missing_stacks = 0
 has_collision = False
 counts = b.get_table("counts")
 stack_traces = b.get_table("stack_traces")
+
+if args.json:
+    stdout, printb = disable_stdout()
+    reports = []
+
 for k, v in sorted(counts.items(), key=lambda counts: counts[1].value):
     # handle get_stackid errors
     if not args.user_stacks_only and stack_id_err(k.kernel_stack_id):
@@ -350,6 +374,19 @@ for k, v in sorted(counts.items(), key=lambda counts: counts[1].value):
             else:
                 line.extend([aksym(addr) for addr in reversed(kernel_stack)])
         print("%s %d" % (b";".join(line).decode('utf-8', 'replace'), v.value))
+    elif args.json:
+        report = {
+            'comm': k.name,
+            'pid': k.pid,
+            'user_stack': [] if stack_id_err(k.user_stack_id) else [b.sym(addr, k.pid) for addr in user_stack],
+            'kernel_stack': [] if stack_id_err(k.kernel_stack_id) else [aksym(addr) for addr in kernel_stack],
+            'value': v.value,
+        }
+
+        if args.containersmap:
+            containers_map.enrich_json_event(report, k.mntnsid)
+
+        reports.append(report)
     else:
         # print default multi-line stack output
         if not args.user_stacks_only:
@@ -368,6 +405,10 @@ for k, v in sorted(counts.items(), key=lambda counts: counts[1].value):
                     print("    %s" % b.sym(addr, k.pid).decode('utf-8', 'replace'))
         print("    %-16s %s (%d)" % ("-", k.name.decode('utf-8', 'replace'), k.pid))
         print("        %d\n" % v.value)
+
+if args.json:
+    json.dump(reports, stdout)
+    stdout.write('\n')
 
 # check missing
 if missing_stacks > 0:
