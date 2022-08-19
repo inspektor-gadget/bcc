@@ -442,12 +442,13 @@ def print_json(event, inetType):
     # always print timestamp
     if start_ts == 0:
             start_ts = event.ts_us
+    saddr = event.saddr if inetType == AF_INET6 else pack("I", event.saddr)
     eventJ = {
         "time": ((float(event.ts_us) - start_ts) / 1000000),
         "uid": event.uid,
         "pid": event.pid,
         "comm": event.task,
-        "addr": inet_ntop(inetType, pack("I", event.saddr)).encode(),
+        "addr": inet_ntop(inetType, saddr),
         "proto": l4.proto2str(event.protocol).encode(),
         "port": event.sport,
         "opts": opts2array(event.socket_options),
