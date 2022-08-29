@@ -426,14 +426,6 @@ def opts2str(bitfield):
         bit *= 2
     return str_options.encode()
 
-def opts2array(bitfield):
-    options = {}
-    bit = 1
-    for opt in "FTNRr":
-        options[opt] = bool(bitfield & bit)
-        bit *= 2
-    return options
-
 if args.containersmap:
     containers_map = ContainersMap(args.containersmap)
 
@@ -451,7 +443,7 @@ def print_json(event, inetType):
         "addr": inet_ntop(inetType, saddr),
         "proto": l4.proto2str(event.protocol).encode(),
         "port": event.sport,
-        "opts": opts2array(event.socket_options),
+        "opts": opts2str(event.socket_options),
         "if": event.bound_dev_if,
     }
 
