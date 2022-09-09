@@ -121,14 +121,14 @@ def _print_json_hist(vals, val_type, section_bucket=None):
             index = index * 2
 
             list_obj = {}
-            list_obj['interval-start'] = prev
-            list_obj['interval-end'] = int(index) - 1
+            list_obj['intervalStart'] = prev
+            list_obj['intervalEnd'] = int(index) - 1
             list_obj['count'] = int(vals[i])
 
             hist_list.append(list_obj)
 
             prev = index
-    histogram = {"ts": strftime("%Y-%m-%d %H:%M:%S"), "val_type": val_type, "data": hist_list}
+    histogram = {"ts": strftime("%Y-%m-%d %H:%M:%S"), "valType": val_type, "data": hist_list}
     if section_bucket:
         histogram[section_bucket[0]] = section_bucket[1]
     print(histogram)

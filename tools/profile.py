@@ -378,8 +378,8 @@ for k, v in sorted(counts.items(), key=lambda counts: counts[1].value):
         report = {
             'comm': k.name,
             'pid': k.pid,
-            'user_stack': [] if stack_id_err(k.user_stack_id) else [b.sym(addr, k.pid) for addr in user_stack],
-            'kernel_stack': [] if stack_id_err(k.kernel_stack_id) else [aksym(addr) for addr in kernel_stack],
+            'userStack': [] if stack_id_err(k.user_stack_id) else [b.sym(addr, k.pid) for addr in user_stack],
+            'kernelStack': [] if stack_id_err(k.kernel_stack_id) else [aksym(addr) for addr in kernel_stack],
             'value': v.value,
         }
 
