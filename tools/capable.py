@@ -326,7 +326,7 @@ def print_event(bpf, cpu, data, size):
             "comm": event.comm.decode('utf-8', 'replace'),
             "pid": event.pid,
             "cap": event.cap,
-            "cap_name": name,
+            "capName": name,
             "audit": event.audit,
             "insetid": str(event.insetid) if event.insetid != -1 else "N/A",
         }
