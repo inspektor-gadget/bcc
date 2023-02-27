@@ -5,7 +5,7 @@ set -e
 # You must run login.sh before running this script.
 
 DEFAULT_DOCKER_REPO="quay.io"
-DEFAULT_RELEASE_TARGET="bionic-release" # will allow unprefixed tags
+DEFAULT_RELEASE_TARGET="focal-release" # will allow unprefixed tags
 
 # Currently only support pushing to quay.io
 DOCKER_REPO=${DEFAULT_DOCKER_REPO}
