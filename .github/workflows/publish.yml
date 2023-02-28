@@ -80,11 +80,11 @@ jobs:
         context: .
         file: docker/Dockerfile.ubuntu
         push: true
-        tags:
-          - quay.io/kinvolk/bcc:${{ github.sha }}-${{ matrix.env['NAME'] }}
-          # We only use a matrix with one job, so it is fine to hardcode gadget
-          # here.
-          - gadget
+        # We only use a matrix with one job, so it is fine to hardcode gadget
+        # here.
+        tags: |
+          quay.io/kinvolk/bcc:${{ github.sha }}-${{ matrix.env['NAME'] }}
+          gadget
         build-args: OS_TAG=${{ matrix.env['OS_RELEASE'] }}
         cache-from: type=local,src=/tmp/.buildx-cache
         cache-to: type=local,dest=/tmp/.buildx-cache-new
