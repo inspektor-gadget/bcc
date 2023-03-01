@@ -84,7 +84,7 @@ jobs:
         # here.
         tags: |
           quay.io/kinvolk/bcc:${{ github.sha }}-${{ matrix.env['NAME'] }}
-          gadget
+          quay.io/kinvolk/bcc:gadget
         build-args: OS_TAG=${{ matrix.env['OS_RELEASE'] }}
         cache-from: type=local,src=/tmp/.buildx-cache
         cache-to: type=local,dest=/tmp/.buildx-cache-new
