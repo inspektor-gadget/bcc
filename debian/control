@@ -30,13 +30,6 @@ Architecture: any
 Depends: libbcc (= ${binary:Version})
 Description: Examples for BPF Compiler Collection (BCC)
 
-Package: python-bcc
-Architecture: all
-Provides: python-bpfcc
-Conflicts: python-bpfcc
-Depends: libbcc (= ${binary:Version}), python, binutils
-Description: Python wrappers for BPF Compiler Collection (BCC)
-
 Package: python3-bcc
 Architecture: all
 Provides: python3-bpfcc
@@ -48,7 +41,7 @@ Package: bcc-tools
 Architecture: all
 Provides: bpfcc-tools
 Conflicts: bpfcc-tools
-Depends: python-bcc (= ${binary:Version})
+Depends: python3-bcc (= ${binary:Version})
 Description: Command line tools for BPF Compiler Collection (BCC)
 
 Package: bcc-lua
