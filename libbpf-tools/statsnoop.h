@@ -11,6 +11,7 @@ struct event {
 	int ret;
 	char comm[TASK_COMM_LEN];
 	char pathname[NAME_MAX];
+	__u64 type;
 };
 
 #endif /* __STATSNOOP_H */

@@ -112,7 +112,7 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 		ts = (double)(e->ts_ns - start_timestamp) / 1000000000;
 		printf("%-14.9f ", ts);
 	}
-	printf("%-7d %-20s %-4d %-4d %-s\n", e->pid, e->comm, fd, err, e->pathname);
+	printf("%-7d %-20s %-4d %-4d %8llx %-s\n", e->pid, e->comm, fd, err, e->type, e->pathname);
 }
 
 static void handle_lost_events(void *ctx, int cpu, __u64 lost_cnt)
@@ -175,8 +175,8 @@ int main(int argc, char **argv)
 
 	if (emit_timestamp)
 		printf("%-14s ", "TIME(s)");
-	printf("%-7s %-20s %-4s %-4s %-s\n",
-	       "PID", "COMM", "RET", "ERR", "PATH");
+	printf("%-7s %-20s %-4s %-4s %-8s %-s\n",
+	       "PID", "COMM", "RET", "ERR", "TYPE", "PATH");
 
 	while (!exiting) {
 		err = perf_buffer__poll(pb, PERF_POLL_TIMEOUT_MS);
